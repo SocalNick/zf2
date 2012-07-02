@@ -35,6 +35,11 @@ class ServiceManager implements ServiceLocatorInterface
     /**
      * @var array
      */
+    protected $pendingAbstractFactoryRequests = array();
+
+    /**
+     * @var array
+     */
     protected $shared = array();
 
     /**
@@ -483,6 +488,13 @@ class ServiceManager implements ServiceLocatorInterface
                 $this->abstractFactory[$index] = $abstractFactory = new $abstractFactory();
             }
 
+            if (
+                isset($this->pendingAbstractFactoryRequests[get_class($abstractFactory)])
+                && $this->pendingAbstractFactoryRequests[get_class($abstractFactory)] == $rName
+            ) {
+                return false;
+            }
+
             if ($abstractFactory->canCreateServiceWithName($this, $cName, $rName)) {
                 return true;
             }
@@ -725,11 +737,13 @@ class ServiceManager implements ServiceLocatorInterface
                     ($requestedName ? '(alias: ' . $requestedName . ')' : '')
                 ));
             }
+            $this->pendingAbstractFactoryRequests[get_class($abstractFactory)] = $requestedName;
             $instance = $this->createServiceViaCallback(
                 array($abstractFactory, 'createServiceWithName'),
                 $canonicalName,
                 $requestedName
             );
+            unset($this->pendingAbstractFactoryRequests[get_class($abstractFactory)]);
             if (is_object($instance)) {
                 break;
             }
